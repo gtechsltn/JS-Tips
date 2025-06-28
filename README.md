@@ -1,5 +1,9 @@
 # JS-Tips
 
+https://github.com/gtechsltn/JS-Tips
+
+https://docs.google.com/document/d/1pllm0y0LhIY01ypfO4INDQ3pHutlwcwHbeXfemXvWzI
+
 ## Chặn click chuột phải (Right Click) bằng JavaScript
 ```
 <script>
