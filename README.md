@@ -98,3 +98,92 @@ var watermark = $"Confidential - {User.Identity.Name} - {DateTime.UtcNow}";
 + Log IP, User-Agent, thời điểm
 + Nếu người dùng tải quá nhiều, có thể block
 + Có thể sử dụng JS fingerprinting hoặc window.onbeforeunload để cảnh báo
+
+## Để hiển thị HTTP 403 Forbidden trong ASP.NET MVC khi người dùng tải một tài liệu quá 3 lần, bạn cần:
+
+Yêu cầu:
+
++ Theo dõi số lần download theo từng người dùng (hoặc IP)
++ Nếu vượt quá 3 lần → trả về 403 Forbidden
+
+### Step 1: Tạo bảng DownloadLogs trong database
+```
+CREATE TABLE DownloadLogs (
+    Id INT PRIMARY KEY IDENTITY,
+    UserName NVARCHAR(100),
+    FileId NVARCHAR(100),
+    DownloadedAt DATETIME,
+    IPAddress NVARCHAR(50)
+);
+```
+
+### Step 2: Action Controller để xử lý download
+```
+public ActionResult DownloadFile(string fileId)
+{
+    string userName = User.Identity.Name; // hoặc lấy theo IP nếu không login
+    string ip = Request.UserHostAddress;
+
+    int downloadCount = GetDownloadCount(userName, fileId);
+
+    if (downloadCount >= 3)
+    {
+        return new HttpStatusCodeResult(403, "Download limit exceeded");
+    }
+
+    LogDownload(userName, fileId, ip);
+
+    // Giả sử file có sẵn
+    string filePath = Server.MapPath($"~/App_Data/{fileId}.pdf");
+    byte[] fileBytes = System.IO.File.ReadAllBytes(filePath);
+    return File(fileBytes, "application/pdf", $"{fileId}.pdf");
+}
+```
+
+### Step 3: Hàm kiểm tra số lần tải
+```
+private int GetDownloadCount(string userName, string fileId)
+{
+    using (var db = new YourDbContext())
+    {
+        return db.DownloadLogs
+                 .Count(log => log.UserName == userName && log.FileId == fileId);
+    }
+}
+```
+
+### Step 4: Ghi log mỗi lần tải
+```
+private void LogDownload(string userName, string fileId, string ip)
+{
+    using (var db = new YourDbContext())
+    {
+        db.DownloadLogs.Add(new DownloadLog
+        {
+            UserName = userName,
+            FileId = fileId,
+            DownloadedAt = DateTime.UtcNow,
+            IPAddress = ip
+        });
+        db.SaveChanges();
+    }
+}
+```
+
+### Step 5: Hiển thị lỗi 403 đẹp hơn (View riêng)
+```
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "403 Forbidden";
+}
+<h2>403 - Forbidden</h2>
+<p>Bạn đã vượt quá số lần tải cho phép.</p>
+```
+
+### Step 5: Controller
+```
+return View("Error403");
+```
+
+### Tùy chọn nâng cao:
+![image](https://github.com/user-attachments/assets/fc1e4deb-341c-46b6-8a15-69c6b69cfd60)
